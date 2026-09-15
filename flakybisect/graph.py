@@ -50,7 +50,7 @@ def node_report(state: State) -> dict:
 
     if not state["is_flaky"]:
         lines.append("")
-        lines.append("Not flaky — result was consistent across all reruns.")
+        lines.append("Not flaky, result was consistent across all reruns.")
         return {"report": "\n".join(lines)}
 
     lines.append("")

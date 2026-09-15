@@ -29,7 +29,7 @@ def _heuristic_classify(reruns: list[RunResult], bisect: list[CommitResult]) -> 
         if len(passed_flags) > 1:
             return "code regression (result changes across recent commits)"
 
-    return "non-deterministic (no code/keyword signal — likely timing or shared state)"
+    return "non-deterministic (no code/keyword signal, likely timing or shared state)"
 
 
 def classify(reruns: list[RunResult], bisect: list[CommitResult]) -> str:
