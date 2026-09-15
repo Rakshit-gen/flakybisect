@@ -6,6 +6,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from flakybisect.bisect import bisect_commits
 from flakybisect.classify import classify
+from flakybisect.graph import build_graph
+from flakybisect.plugins import CLASSIFIERS, REPORTERS, register_classifier
 from flakybisect.runner import RunResult, rerun
 
 REPO_ROOT = os.path.join(os.path.dirname(__file__), "..")
@@ -51,6 +53,39 @@ def test_classify_falls_back_without_signal():
     reruns = [RunResult(passed=False, returncode=1, output_tail="AssertionError: 1 != 2")]
     label = classify(reruns, bisect=[])
     assert "non-deterministic" in label or "regression" in label
+
+
+def test_builtin_classifiers_and_reporters_are_registered():
+    assert {"heuristic", "hybrid"} <= set(CLASSIFIERS)
+    assert {"markdown", "json"} <= set(REPORTERS)
+
+
+def test_json_reporter_selected_by_name():
+    app = build_graph(classifier="heuristic", reporter="json")
+    result = app.invoke(
+        {"test_cmd": 'python3 -c "import sys; sys.exit(0)"', "repo": REPO_ROOT, "reruns": 2, "commits": 1}
+    )
+    assert result["report"].startswith("{")
+    assert '"is_flaky": false' in result["report"]
+
+
+def test_custom_classifier_can_be_registered_and_used():
+    @register_classifier("always-say-hi")
+    def _custom(reruns, bisect):
+        return "hi"
+
+    app = build_graph(classifier="always-say-hi", reporter="markdown")
+    cmd = (
+        f'python3 -c "'
+        f"import os; f='{os.path.join(REPO_ROOT, '.flaky_test_counter2')}'; "
+        f"n=int(open(f).read()) if os.path.exists(f) else 0; open(f,'w').write(str(n+1)); "
+        f"import sys; sys.exit(0 if n % 2 == 0 else 1)\""
+    )
+    result = app.invoke({"test_cmd": cmd, "repo": REPO_ROOT, "reruns": 4, "commits": 1})
+    counter_file = os.path.join(REPO_ROOT, ".flaky_test_counter2")
+    if os.path.exists(counter_file):
+        os.remove(counter_file)
+    assert "**Likely cause:** hi" in result["report"]
 
 
 if __name__ == "__main__":
