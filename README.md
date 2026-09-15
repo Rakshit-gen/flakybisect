@@ -53,6 +53,37 @@ Reran 5x at HEAD: 3 passed, 2 failed.
    read.
 5. **report**: a markdown summary, printed and optionally written with `-o`.
 
+## Extending
+
+The classifier and reporter are plugins, picked by name:
+
+```bash
+flakybisect --list-plugins
+# classifiers: heuristic, hybrid
+# reporters:   json, markdown
+
+flakybisect --cmd "..." --classifier heuristic --reporter json
+```
+
+Register your own before building the graph:
+
+```python
+from flakybisect.plugins import register_classifier, register_reporter
+
+@register_classifier("my-classifier")
+def my_classifier(reruns, bisect):
+    ...
+    return "some label"
+
+@register_reporter("my-reporter")
+def my_reporter(state):
+    ...
+    return "some report string"
+```
+
+Then pass `--classifier my-classifier` / `--reporter my-reporter` on the CLI,
+or `build_graph(classifier="my-classifier", reporter="my-reporter")` directly.
+
 ## Test it yourself
 
 ```bash
