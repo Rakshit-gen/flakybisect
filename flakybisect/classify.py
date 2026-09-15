@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 
 from .bisect import CommitResult
+from .plugins import register_classifier
 from .runner import RunResult
 
 _KEYWORD_HINTS = {
@@ -32,7 +33,15 @@ def _heuristic_classify(reruns: list[RunResult], bisect: list[CommitResult]) -> 
     return "non-deterministic (no code/keyword signal, likely timing or shared state)"
 
 
+@register_classifier("heuristic")
+def heuristic_classify(reruns: list[RunResult], bisect: list[CommitResult]) -> str:
+    """Keyword/bisect heuristic only, no LLM call even if a key is set. Fast, offline."""
+    return _heuristic_classify(reruns, bisect)
+
+
+@register_classifier("hybrid")
 def classify(reruns: list[RunResult], bisect: list[CommitResult]) -> str:
+    """Heuristic guess, refined by an LLM call if ANTHROPIC_API_KEY is set."""
     heuristic = _heuristic_classify(reruns, bisect)
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return heuristic
