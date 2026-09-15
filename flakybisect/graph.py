@@ -1,12 +1,19 @@
-"""LangGraph wiring: rerun -> (stable? end : bisect -> classify) -> report."""
+"""LangGraph wiring: rerun -> (stable? end : bisect -> classify) -> report.
+
+The classifier and reporter are swappable: build_graph(classifier=..., reporter=...)
+picks by name from the flakybisect.plugins registries (see classify.py, reporters.py,
+or register your own).
+"""
 from __future__ import annotations
 
 from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
 
+from . import classify as _classify  # noqa: F401  (registers built-in classifiers)
+from . import reporters as _reporters  # noqa: F401  (registers built-in reporters)
 from .bisect import CommitResult, bisect_commits
-from .classify import classify
+from .plugins import CLASSIFIERS, REPORTERS
 from .runner import RunResult, rerun
 
 
@@ -37,34 +44,17 @@ def node_bisect(state: State) -> dict:
     return {"bisect_results": results}
 
 
-def node_classify(state: State) -> dict:
-    label = classify(state["rerun_results"], state.get("bisect_results", []))
-    return {"classification": label}
+def build_graph(classifier: str = "hybrid", reporter: str = "markdown"):
+    classify_fn = CLASSIFIERS[classifier]
+    report_fn = REPORTERS[reporter]
 
+    def node_classify(state: State) -> dict:
+        label = classify_fn(state["rerun_results"], state.get("bisect_results", []))
+        return {"classification": label}
 
-def node_report(state: State) -> dict:
-    lines = [f"# flakybisect report: `{state['test_cmd']}`", ""]
-    reruns = state["rerun_results"]
-    pass_count = sum(r.passed for r in reruns)
-    lines.append(f"Reran {len(reruns)}x at HEAD: {pass_count} passed, {len(reruns) - pass_count} failed.")
+    def node_report(state: State) -> dict:
+        return {"report": report_fn(state)}
 
-    if not state["is_flaky"]:
-        lines.append("")
-        lines.append("Not flaky, result was consistent across all reruns.")
-        return {"report": "\n".join(lines)}
-
-    lines.append("")
-    lines.append(f"**Likely cause:** {state['classification']}")
-    lines.append("")
-    lines.append("## Bisect (last commits, newest first)")
-    for c in state.get("bisect_results", []):
-        status = "pass" if c.passed else "FAIL"
-        lines.append(f"- `{c.sha[:8]}` [{status}] {c.subject}")
-
-    return {"report": "\n".join(lines)}
-
-
-def build_graph():
     graph = StateGraph(State)
     graph.add_node("rerun", node_rerun)
     graph.add_node("bisect", node_bisect)
