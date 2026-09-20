@@ -22,6 +22,8 @@ def _run_git(args: list[str], cwd: str) -> str:
 
 
 def recent_commits(repo: str, count: int) -> list[tuple[str, str]]:
+    if count <= 0:
+        return []
     log = _run_git(["log", f"-n{count}", "--format=%H%x09%s"], repo)
     commits = []
     for line in log.splitlines():
