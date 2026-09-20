@@ -55,7 +55,7 @@ def classify(reruns: list[RunResult], bisect: list[CommitResult]) -> str:
         prompt = (
             "A test is flaky. A cheap heuristic guessed the cause as: "
             f"'{heuristic}'.\n\nFailure output samples:\n{failure_snippets}\n\n"
-            f"Bisect results (last commits, oldest first):\n{bisect_summary}\n\n"
+            f"Bisect results (last commits, newest first):\n{bisect_summary}\n\n"
             "In one short sentence, give the most likely root cause category "
             "(e.g. race condition, timeout, test order dependency, shared "
             "external resource, code regression). If the heuristic already "
